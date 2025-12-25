@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>今日のニュース</title>
+
+  <!-- 📱 アプリ化設定 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="icon.png">
+
+  <!-- 🎨 デザイン + 🌙 ダークモード -->
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
+      margin: 16px;
+      background: #ffffff;
+      color: #000000;
+      line-height: 1.6;
+    }
+
+    h1 {
+      font-size: 1.5em;
+      margin-bottom: 0.8em;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    li {
+      margin-bottom: 0.6em;
+    }
+
+    a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* 🌙 ダークモード */
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #000000;
+        color: #ffffff;
+      }
+      a {
+        color: #4da3ff;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <h1>📰 今日のニュース</h1>
+  <ul id="news"></ul>
+
+  <!-- 🧠 ニュース取得 -->
+  <script>
+    const RSS_URL =
+      "https://api.allorigins.win/raw?url=https://www3.nhk.or.jp/rss/news/cat0.xml";
+
+    fetch(RSS_URL)
+      .then(res => res.text())
+      .then(str => new DOMParser().parseFromString(str, "text/xml"))
+      .then(data => {
+        const items = data.querySelectorAll("item");
+        const list = document.getElementById("news");
+
+        items.forEach((item, index) => {
+          if (index < 10) {
+            const title = item.querySelector("title").textContent;
+            const link = item.querySelector("link").textContent;
+
+            const li = document.createElement("li");
+            li.innerHTML = `<a href="${link}" target="_blank">${title}</a>`;
+            list.appendChild(li);
+          }
+        });
+      })
+      .catch(err => {
+        document.getElementById("news").innerHTML =
+          "<li>ニュースを取得できませんでした</li>";
+      });
+  </script>
+</body>
+</html>
