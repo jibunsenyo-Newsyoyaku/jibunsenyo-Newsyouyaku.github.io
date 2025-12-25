@@ -18,6 +18,13 @@ body {
   body { background:#000; color:#fff; }
 }
 
+#reload {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+}
+
 #splash {
   position: fixed;
   inset: 0;
@@ -86,6 +93,8 @@ a {
 </head>
 
 <body>
+<button id="reload">更新</button>
+
 <div id="splash">
   <div class="spinner"></div>
   <div>ロード中…</div>
@@ -94,6 +103,10 @@ a {
 <ul id="news"></ul>
 
 <script>
+document.getElementById("reload").onclick = () => {
+  location.reload(true);
+};
+
 fetch("news.json")
   .then(res => res.json())
   .then(items => {
@@ -104,13 +117,16 @@ fetch("news.json")
 
       const img = document.createElement("img");
       img.className = "thumb";
-      if (item.image) img.src = item.image;
+      img.src = item.image || "https://via.placeholder.com/150?text=News";
+      img.onerror = () => {
+        img.src = "https://via.placeholder.com/150?text=News";
+      };
 
       const box = document.createElement("div");
 
       const source = document.createElement("div");
       source.className = "source";
-      source.textContent = item.source;
+      source.textContent = item.source || "";
 
       const a = document.createElement("a");
       a.href = item.link;
