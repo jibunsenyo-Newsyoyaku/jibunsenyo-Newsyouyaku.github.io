@@ -1,158 +1,190 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>今日のニュース</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>今日のニュース</title>
 
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 
-  <style>
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #ffffff;
-      color: #000000;
-    }
+<style>
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #fff;
+  color: #000;
+}
+@media (prefers-color-scheme: dark) {
+  body { background:#000; color:#fff; }
+}
 
-    @media (prefers-color-scheme: dark) {
-      body {
-        background: #000000;
-        color: #ffffff;
-      }
-    }
+/* ===== 起動画面 ===== */
+#splash {
+  position: fixed;
+  inset: 0;
+  background: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
 
-    /* 起動画面 */
-    #splash {
-      position: fixed;
-      inset: 0;
-      background: inherit;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 10;
-    }
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(0,0,0,.2);
+  border-top-color: rgba(0,0,0,.8);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  .spinner {
+    border: 3px solid rgba(255,255,255,.2);
+    border-top-color: rgba(255,255,255,.8);
+  }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 
-    /* ニュース */
-    ul {
-      list-style: none;
-      padding: 16px;
-      margin: 0;
-    }
+.loading {
+  font-size: 14px;
+  opacity: .6;
+}
 
-    li {
-      display: flex;
-      gap: 12px;
-      padding: 12px 0;
-      border-bottom: 1px solid rgba(0,0,0,0.1);
-    }
-
-    @media (prefers-color-scheme: dark) {
-      li {
-        border-bottom: 1px solid rgba(255,255,255,0.15);
-      }
-    }
-
-    .thumb {
-      width: 72px;
-      height: 72px;
-      border-radius: 8px;
-      background: #ddd;
-      flex-shrink: 0;
-      object-fit: cover;
-    }
-
-    .content {
-      flex: 1;
-    }
-
-    .source {
-      font-size: 12px;
-      opacity: 0.6;
-      margin-bottom: 4px;
-    }
-
-    a {
-      text-decoration: none;
-      color: inherit;
-      font-size: 15px;
-    }
-  </style>
+/* ===== ニュース ===== */
+ul {
+  list-style: none;
+  padding: 16px;
+  margin: 0;
+}
+li {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+@media (prefers-color-scheme: dark) {
+  li { border-bottom: 1px solid #333; }
+}
+.thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  background: #ccc;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+@media (prefers-color-scheme: dark) {
+  .thumb { background:#222; }
+}
+.source {
+  font-size: 12px;
+  opacity: .6;
+  margin-bottom: 4px;
+}
+a {
+  text-decoration: none;
+  color: inherit;
+  font-size: 15px;
+}
+</style>
 </head>
 
 <body>
-  <div id="splash">
-    <div style="font-size:48px">📰</div>
-    <div style="opacity:.7">今日のニュース</div>
-  </div>
+<div id="splash">
+  <div class="spinner"></div>
+  <div class="loading">ロード中…</div>
+</div>
 
-  <ul id="news" style="display:none;"></ul>
+<ul id="news" style="display:none;"></ul>
 
-  <script>
-    const rss = "https://news.yahoo.co.jp/rss/topics/top-picks.xml";
-    const proxy = "https://api.allorigins.win/raw?url=";
+<script>
+const rss = "https://news.yahoo.co.jp/rss/topics/top-picks.xml";
+const proxy = "https://api.allorigins.win/raw?url=";
+const cacheKey = "cachedNews";
 
-    function getSourceName(url) {
-      if (url.includes("nhk.or.jp")) return "NHK";
-      if (url.includes("nikkei.com")) return "日本経済新聞";
-      if (url.includes("asahi.com")) return "朝日新聞";
-      if (url.includes("yahoo.co.jp")) return "Yahoo!ニュース";
-      if (url.includes("mainichi.jp")) return "毎日新聞";
-      return new URL(url).hostname.replace("www.", "");
-    }
+/* ===== 配信元判定 ===== */
+function getSourceName(url) {
+  if (url.includes("nhk.or.jp")) return "NHK";
+  if (url.includes("nikkei.com")) return "日本経済新聞";
+  if (url.includes("asahi.com")) return "朝日新聞";
+  if (url.includes("mainichi.jp")) return "毎日新聞";
+  return new URL(url).hostname.replace("www.", "");
+}
 
-    function fetchOGImage(url, img) {
-      fetch(proxy + encodeURIComponent(url))
-        .then(res => res.text())
-        .then(html => {
-          const doc = new DOMParser().parseFromString(html, "text/html");
-          const meta = doc.querySelector('meta[property="og:image"]');
-          if (meta) img.src = meta.content;
-        })
-        .catch(() => {});
-    }
+/* ===== OGP画像 ===== */
+function fetchOGImage(url, img) {
+  fetch(proxy + encodeURIComponent(url))
+    .then(res => res.text())
+    .then(html => {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const meta = doc.querySelector('meta[property="og:image"]');
+      if (meta) img.src = meta.content;
+    })
+    .catch(() => {});
+}
 
-    fetch(rss)
-      .then(res => res.text())
-      .then(str => new DOMParser().parseFromString(str, "text/xml"))
-      .then(data => {
-        const items = data.querySelectorAll("item");
-        const list = document.getElementById("news");
+/* ===== 描画 ===== */
+function render(items) {
+  const list = document.getElementById("news");
+  list.innerHTML = "";
 
-        items.forEach(item => {
-          const link = item.querySelector("link").textContent;
+  items.forEach(({ title, link }) => {
+    const li = document.createElement("li");
 
-          const li = document.createElement("li");
+    const img = document.createElement("img");
+    img.className = "thumb";
+    fetchOGImage(link, img);
 
-          const img = document.createElement("img");
-          img.className = "thumb";
-          fetchOGImage(link, img);
+    const box = document.createElement("div");
 
-          const content = document.createElement("div");
-          content.className = "content";
+    const source = document.createElement("div");
+    source.className = "source";
+    source.textContent = getSourceName(link);
 
-          const source = document.createElement("div");
-          source.className = "source";
-          source.textContent = getSourceName(link);
+    const a = document.createElement("a");
+    a.href = link;
+    a.textContent = title;
+    a.target = "_blank";
 
-          const a = document.createElement("a");
-          a.href = link;
-          a.textContent = item.querySelector("title").textContent;
-          a.target = "_blank";
+    box.appendChild(source);
+    box.appendChild(a);
 
-          content.appendChild(source);
-          content.appendChild(a);
+    li.appendChild(img);
+    li.appendChild(box);
+    list.appendChild(li);
+  });
 
-          li.appendChild(img);
-          li.appendChild(content);
-          list.appendChild(li);
-        });
+  document.getElementById("splash").style.display = "none";
+  list.style.display = "block";
+}
 
-        document.getElementById("splash").style.display = "none";
-        list.style.display = "block";
-      });
-  </script>
+/* ===== キャッシュ即表示 ===== */
+const cached = localStorage.getItem(cacheKey);
+if (cached) {
+  render(JSON.parse(cached));
+}
+
+/* ===== 最新取得 ===== */
+fetch(rss)
+  .then(res => res.text())
+  .then(str => new DOMParser().parseFromString(str, "text/xml"))
+  .then(data => {
+    const items = [...data.querySelectorAll("item")].map(item => ({
+      title: item.querySelector("title").textContent,
+      link: item.querySelector("link").textContent
+    }));
+
+    localStorage.setItem(cacheKey, JSON.stringify(items));
+    render(items);
+  })
+  .catch(() => {
+    document.querySelector(".loading").textContent = "読み込み失敗";
+  });
+</script>
 </body>
 </html>
