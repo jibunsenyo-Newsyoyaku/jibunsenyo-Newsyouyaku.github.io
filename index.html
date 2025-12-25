@@ -23,12 +23,15 @@ body {
 #splash {
   position: fixed;
   inset: 0;
-  background: inherit;
+  background: #fff;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   z-index: 10;
+}
+@media (prefers-color-scheme: dark) {
+  #splash { background:#000; }
 }
 
 .spinner {
@@ -46,9 +49,7 @@ body {
     border-top-color: rgba(255,255,255,.8);
   }
 }
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .loading {
   font-size: 14px;
@@ -70,6 +71,7 @@ li {
 @media (prefers-color-scheme: dark) {
   li { border-bottom: 1px solid #333; }
 }
+
 .thumb {
   width: 72px;
   height: 72px;
@@ -81,11 +83,13 @@ li {
 @media (prefers-color-scheme: dark) {
   .thumb { background:#222; }
 }
+
 .source {
   font-size: 12px;
   opacity: .6;
   margin-bottom: 4px;
 }
+
 a {
   text-decoration: none;
   color: inherit;
@@ -103,9 +107,13 @@ a {
 <ul id="news" style="display:none;"></ul>
 
 <script>
-const rss = "https://news.yahoo.co.jp/rss/topics/top-picks.xml";
-const proxy = "https://api.allorigins.win/raw?url=";
-const cacheKey = "cachedNews";
+/* ===== 設定 ===== */
+const rssAPI =
+  "https://api.rss2json.com/v1/api.json?rss_url=" +
+  encodeURIComponent("https://news.yahoo.co.jp/rss/topics/top-picks.xml");
+
+const ogpProxy = "https://api.allorigins.win/raw?url=";
+const cacheKey = "newsCache";
 
 /* ===== 配信元判定 ===== */
 function getSourceName(url) {
@@ -118,7 +126,7 @@ function getSourceName(url) {
 
 /* ===== OGP画像 ===== */
 function fetchOGImage(url, img) {
-  fetch(proxy + encodeURIComponent(url))
+  fetch(ogpProxy + encodeURIComponent(url))
     .then(res => res.text())
     .then(html => {
       const doc = new DOMParser().parseFromString(html, "text/html");
@@ -133,22 +141,22 @@ function render(items) {
   const list = document.getElementById("news");
   list.innerHTML = "";
 
-  items.forEach(({ title, link }) => {
+  items.forEach(item => {
     const li = document.createElement("li");
 
     const img = document.createElement("img");
     img.className = "thumb";
-    fetchOGImage(link, img);
+    fetchOGImage(item.link, img);
 
     const box = document.createElement("div");
 
     const source = document.createElement("div");
     source.className = "source";
-    source.textContent = getSourceName(link);
+    source.textContent = getSourceName(item.link);
 
     const a = document.createElement("a");
-    a.href = link;
-    a.textContent = title;
+    a.href = item.link;
+    a.textContent = item.title;
     a.target = "_blank";
 
     box.appendChild(source);
@@ -170,13 +178,12 @@ if (cached) {
 }
 
 /* ===== 最新取得 ===== */
-fetch(rss)
-  .then(res => res.text())
-  .then(str => new DOMParser().parseFromString(str, "text/xml"))
+fetch(rssAPI)
+  .then(res => res.json())
   .then(data => {
-    const items = [...data.querySelectorAll("item")].map(item => ({
-      title: item.querySelector("title").textContent,
-      link: item.querySelector("link").textContent
+    const items = data.items.map(item => ({
+      title: item.title,
+      link: item.link
     }));
 
     localStorage.setItem(cacheKey, JSON.stringify(items));
