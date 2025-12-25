@@ -1,0 +1,11 @@
+{
+  "updated": "$(date)",
+  "items": [
+    {
+      "title": "テストニュース",
+      "source": "GitHub Actions",
+      "url": "https://github.com",
+      "image": ""
+    }
+  ]
+}
