@@ -6,7 +6,6 @@
 <title>今日のニュース</title>
 
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
 
 <style>
 body {
@@ -19,19 +18,14 @@ body {
   body { background:#000; color:#fff; }
 }
 
-/* ===== 起動画面 ===== */
 #splash {
   position: fixed;
   inset: 0;
-  background: #fff;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  z-index: 10;
-}
-@media (prefers-color-scheme: dark) {
-  #splash { background:#000; }
+  background: inherit;
 }
 
 .spinner {
@@ -51,17 +45,13 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.loading {
-  font-size: 14px;
-  opacity: .6;
-}
-
-/* ===== ニュース ===== */
 ul {
   list-style: none;
   padding: 16px;
   margin: 0;
+  display: none;
 }
+
 li {
   display: flex;
   gap: 12px;
@@ -77,11 +67,8 @@ li {
   height: 72px;
   border-radius: 8px;
   background: #ccc;
-  flex-shrink: 0;
   object-fit: cover;
-}
-@media (prefers-color-scheme: dark) {
-  .thumb { background:#222; }
+  flex-shrink: 0;
 }
 
 .source {
@@ -91,8 +78,8 @@ li {
 }
 
 a {
-  text-decoration: none;
   color: inherit;
+  text-decoration: none;
   font-size: 15px;
 }
 </style>
@@ -101,96 +88,48 @@ a {
 <body>
 <div id="splash">
   <div class="spinner"></div>
-  <div class="loading">ロード中…</div>
+  <div>ロード中…</div>
 </div>
 
-<ul id="news" style="display:none;"></ul>
+<ul id="news"></ul>
 
 <script>
-/* ===== 設定 ===== */
-const rssAPI =
-  "https://api.rss2json.com/v1/api.json?rss_url=" +
-  encodeURIComponent("https://news.yahoo.co.jp/rss/topics/top-picks.xml");
-
-const ogpProxy = "https://api.allorigins.win/raw?url=";
-const cacheKey = "newsCache";
-
-/* ===== 配信元判定 ===== */
-function getSourceName(url) {
-  if (url.includes("nhk.or.jp")) return "NHK";
-  if (url.includes("nikkei.com")) return "日本経済新聞";
-  if (url.includes("asahi.com")) return "朝日新聞";
-  if (url.includes("mainichi.jp")) return "毎日新聞";
-  return new URL(url).hostname.replace("www.", "");
-}
-
-/* ===== OGP画像 ===== */
-function fetchOGImage(url, img) {
-  fetch(ogpProxy + encodeURIComponent(url))
-    .then(res => res.text())
-    .then(html => {
-      const doc = new DOMParser().parseFromString(html, "text/html");
-      const meta = doc.querySelector('meta[property="og:image"]');
-      if (meta) img.src = meta.content;
-    })
-    .catch(() => {});
-}
-
-/* ===== 描画 ===== */
-function render(items) {
-  const list = document.getElementById("news");
-  list.innerHTML = "";
-
-  items.forEach(item => {
-    const li = document.createElement("li");
-
-    const img = document.createElement("img");
-    img.className = "thumb";
-    fetchOGImage(item.link, img);
-
-    const box = document.createElement("div");
-
-    const source = document.createElement("div");
-    source.className = "source";
-    source.textContent = getSourceName(item.link);
-
-    const a = document.createElement("a");
-    a.href = item.link;
-    a.textContent = item.title;
-    a.target = "_blank";
-
-    box.appendChild(source);
-    box.appendChild(a);
-
-    li.appendChild(img);
-    li.appendChild(box);
-    list.appendChild(li);
-  });
-
-  document.getElementById("splash").style.display = "none";
-  list.style.display = "block";
-}
-
-/* ===== キャッシュ即表示 ===== */
-const cached = localStorage.getItem(cacheKey);
-if (cached) {
-  render(JSON.parse(cached));
-}
-
-/* ===== 最新取得 ===== */
-fetch(rssAPI)
+fetch("news.json")
   .then(res => res.json())
-  .then(data => {
-    const items = data.items.map(item => ({
-      title: item.title,
-      link: item.link
-    }));
+  .then(items => {
+    const list = document.getElementById("news");
 
-    localStorage.setItem(cacheKey, JSON.stringify(items));
-    render(items);
+    items.forEach(item => {
+      const li = document.createElement("li");
+
+      const img = document.createElement("img");
+      img.className = "thumb";
+      if (item.image) img.src = item.image;
+
+      const box = document.createElement("div");
+
+      const source = document.createElement("div");
+      source.className = "source";
+      source.textContent = item.source;
+
+      const a = document.createElement("a");
+      a.href = item.link;
+      a.textContent = item.title;
+      a.target = "_blank";
+
+      box.appendChild(source);
+      box.appendChild(a);
+
+      li.appendChild(img);
+      li.appendChild(box);
+      list.appendChild(li);
+    });
+
+    document.getElementById("splash").style.display = "none";
+    list.style.display = "block";
   })
   .catch(() => {
-    document.querySelector(".loading").textContent = "読み込み失敗";
+    document.getElementById("splash").innerText = "読み込み失敗";
   });
 </script>
 </body>
