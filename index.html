@@ -1,47 +1,20 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>今日のニュース</title>
 
-  <!-- 📱 アプリ化設定 -->
+  <!-- iOS アプリっぽく -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="apple-touch-icon" href="icon.png">
 
-  <!-- 🎨 デザイン + 🌙 ダークモード -->
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
-      margin: 16px;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
       background: #ffffff;
       color: #000000;
-      line-height: 1.6;
-    }
-
-    h1 {
-      font-size: 1.5em;
-      margin-bottom: 0.8em;
-    }
-
-    ul {
-      list-style: none;
-      padding: 0;
-    }
-
-    li {
-      margin-bottom: 0.6em;
-    }
-
-    a {
-      color: #0066cc;
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
     }
 
     /* 🌙 ダークモード */
@@ -50,43 +23,93 @@
         background: #000000;
         color: #ffffff;
       }
-      a {
-        color: #4da3ff;
+    }
+
+    /* 起動画面（白画面防止） */
+    #splash {
+      position: fixed;
+      inset: 0;
+      background: inherit;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+
+    #splash .logo {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    #splash .title {
+      font-size: 18px;
+      opacity: 0.7;
+    }
+
+    /* ニュース */
+    ul {
+      list-style: none;
+      padding: 16px;
+      margin: 0;
+    }
+
+    li {
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      li {
+        border-bottom: 1px solid rgba(255,255,255,0.15);
       }
+    }
+
+    a {
+      text-decoration: none;
+      color: inherit;
     }
   </style>
 </head>
 
 <body>
-  <h1>📰 今日のニュース</h1>
-  <ul id="news"></ul>
+  <!-- 起動画面 -->
+  <div id="splash">
+    <div class="logo">📰</div>
+    <div class="title">今日のニュース</div>
+  </div>
 
-  <!-- 🧠 ニュース取得 -->
+  <!-- ニュース一覧 -->
+  <ul id="news" style="display:none;"></ul>
+
   <script>
-    const RSS_URL =
-      "https://api.allorigins.win/raw?url=https://www3.nhk.or.jp/rss/news/cat0.xml";
+    const rss = "https://news.yahoo.co.jp/rss/topics/top-picks.xml";
 
-    fetch(RSS_URL)
+    fetch(rss)
       .then(res => res.text())
-      .then(str => new DOMParser().parseFromString(str, "text/xml"))
+      .then(str => new window.DOMParser().parseFromString(str, "text/xml"))
       .then(data => {
         const items = data.querySelectorAll("item");
         const list = document.getElementById("news");
 
-        items.forEach((item, index) => {
-          if (index < 10) {
-            const title = item.querySelector("title").textContent;
-            const link = item.querySelector("link").textContent;
+        items.forEach(item => {
+          const li = document.createElement("li");
+          const a = document.createElement("a");
 
-            const li = document.createElement("li");
-            li.innerHTML = `<a href="${link}" target="_blank">${title}</a>`;
-            list.appendChild(li);
-          }
+          a.href = item.querySelector("link").textContent;
+          a.textContent = item.querySelector("title").textContent;
+          a.target = "_blank";
+
+          li.appendChild(a);
+          list.appendChild(li);
         });
+
+        // 起動画面を消す
+        document.getElementById("splash").style.display = "none";
+        list.style.display = "block";
       })
-      .catch(err => {
-        document.getElementById("news").innerHTML =
-          "<li>ニュースを取得できませんでした</li>";
+      .catch(() => {
+        document.querySelector("#splash .title").textContent = "読み込み失敗";
       });
   </script>
 </body>
