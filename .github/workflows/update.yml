@@ -3,36 +3,57 @@ name: Update News
 on:
   schedule:
     - cron: "0 */3 * * *"   # 3時間ごと
-  workflow_dispatch:       # 手動実行も可
+  workflow_dispatch:
 
 jobs:
   update:
     runs-on: ubuntu-latest
 
     steps:
-      # ① リポジトリ取得
       - uses: actions/checkout@v4
 
-      # ② jq を明示的にインストール
       - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
+        run: sudo apt-get install -y jq
 
-      # ③ RSS取得 → JSON生成（null耐性あり）
-      - name: Fetch RSS
+      - name: Fetch multiple RSS
         run: |
-          curl -s "https://api.rss2json.com/v1/api.json?rss_url=https://news.yahoo.co.jp/rss/topics/top-picks.xml" \
-          | jq '[.items // [] | .[] | {
-              title: .title,
-              link: .link,
-              source: "Yahoo!ニュース",
-              image: (.thumbnail // "")
-            }]' > news.json
+          RSS_LIST='[
+            {
+              "source": "Yahoo!ニュース",
+              "url": "https://news.yahoo.co.jp/rss/topics/top-picks.xml"
+            },
+            {
+              "source": "NHK",
+              "url": "https://www.nhk.or.jp/rss/news/cat0.xml"
+            },
+            {
+              "source": "ITmedia",
+              "url": "https://rss.itmedia.co.jp/rss/2.0/news_bursts.xml"
+            }
+          ]'
 
-          # 念のため中身確認（ログ用）
-          echo "===== news.json ====="
-          cat news.json
+          echo "[]" > news.json
 
-      # ④ 変更があればコミット＆プッシュ
+          echo "$RSS_LIST" | jq -c '.[]' | while read rss; do
+            SOURCE=$(echo "$rss" | jq -r '.source')
+            URL=$(echo "$rss" | jq -r '.url')
+
+            echo "Fetching $SOURCE"
+
+            curl -s "https://api.rss2json.com/v1/api.json?rss_url=$URL" \
+            | jq --arg source "$SOURCE" '
+              (.items // []) | map({
+                title: .title,
+                link: .link,
+                image: (.thumbnail // ""),
+                source: $source
+              })
+            ' > temp.json || echo "[]" > temp.json
+
+            jq -s '.[0] + .[1]' news.json temp.json > merged.json
+            mv merged.json news.json
+          done
+
       - name: Commit update
         run: |
           git config user.name "github-actions"
