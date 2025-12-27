@@ -19,40 +19,37 @@ jobs:
         run: |
           RSS_LIST='[
             {
+              "url": "https://news.yahoo.co.jp/rss/topics/top-picks.xml",
               "source": "Yahoo!ニュース",
-              "url": "https://news.yahoo.co.jp/rss/topics/top-picks.xml"
+              "defaultImage": ""
             },
             {
+              "url": "https://www3.nhk.or.jp/rss/news/cat0.xml",
               "source": "NHK",
-              "url": "https://www.nhk.or.jp/rss/news/cat0.xml"
-            },
-            {
-              "source": "ITmedia",
-              "url": "https://rss.itmedia.co.jp/rss/2.0/news_bursts.xml"
+              "defaultImage": "https://www3.nhk.or.jp/news/images/top_news_default.jpg"
             }
           ]'
 
           echo "[]" > news.json
 
           echo "$RSS_LIST" | jq -c '.[]' | while read rss; do
-            SOURCE=$(echo "$rss" | jq -r '.source')
-            URL=$(echo "$rss" | jq -r '.url')
-
-            echo "Fetching $SOURCE"
+            URL=$(echo $rss | jq -r '.url')
+            SOURCE=$(echo $rss | jq -r '.source')
+            DEFAULT_IMAGE=$(echo $rss | jq -r '.defaultImage')
 
             curl -s "https://api.rss2json.com/v1/api.json?rss_url=$URL" \
-            | jq --arg source "$SOURCE" '
-              (.items // []) | map({
+            | jq --arg source "$SOURCE" --arg defimg "$DEFAULT_IMAGE" '
+              .items[]? | {
                 title: .title,
                 link: .link,
-                image: (.thumbnail // ""),
-                source: $source
-              })
-            ' > temp.json || echo "[]" > temp.json
-
-            jq -s '.[0] + .[1]' news.json temp.json > merged.json
-            mv merged.json news.json
+                source: $source,
+                image: (.thumbnail // .enclosure.link // $defimg)
+              }
+            ' >> tmp.json || true
           done
+
+          jq -s '.' tmp.json > news.json
+          rm -f tmp.json
 
       - name: Commit update
         run: |
