@@ -15,41 +15,34 @@ jobs:
       - name: Install jq
         run: sudo apt-get install -y jq
 
-      - name: Fetch multiple RSS
+      - name: Fetch RSS (NHK + Yahoo)
         run: |
-          RSS_LIST='[
-            {
-              "url": "https://news.yahoo.co.jp/rss/topics/top-picks.xml",
-              "source": "Yahoo!ニュース",
-              "defaultImage": ""
-            },
-            {
-              "url": "https://www3.nhk.or.jp/rss/news/cat0.xml",
-              "source": "NHK",
-              "defaultImage": "https://www3.nhk.or.jp/news/images/top_news_default.jpg"
-            }
-          ]'
-
           echo "[]" > news.json
 
-          echo "$RSS_LIST" | jq -c '.[]' | while read rss; do
-            URL=$(echo $rss | jq -r '.url')
-            SOURCE=$(echo $rss | jq -r '.source')
-            DEFAULT_IMAGE=$(echo $rss | jq -r '.defaultImage')
+          fetch() {
+            RSS_URL=$1
+            SOURCE=$2
 
-            curl -s "https://api.rss2json.com/v1/api.json?rss_url=$URL" \
-            | jq --arg source "$SOURCE" --arg defimg "$DEFAULT_IMAGE" '
-              .items[]? | {
-                title: .title,
-                link: .link,
-                source: $source,
-                image: (.thumbnail // .enclosure.link // $defimg)
-              }
-            ' >> tmp.json || true
-          done
+            curl -s "https://api.rss2json.com/v1/api.json?rss_url=${RSS_URL}" \
+            | jq --arg source "$SOURCE" '
+              if .items then
+                [.items[] | {
+                  title: .title,
+                  link: .link,
+                  source: $source,
+                  image: (.thumbnail // .enclosure.link // "")
+                }]
+              else
+                []
+              end
+            ' >> tmp.json
+          }
 
-          jq -s '.' tmp.json > news.json
-          rm -f tmp.json
+          fetch "https://www3.nhk.or.jp/rss/news/cat0.xml" "NHK"
+          fetch "https://news.yahoo.co.jp/rss/topics/top-picks.xml" "Yahoo"
+
+          jq -s 'add | unique_by(.link)' tmp.json > news.json
+          rm tmp.json
 
       - name: Commit update
         run: |
